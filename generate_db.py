@@ -4,6 +4,7 @@ import string
 import struct
 
 
+# TODO: run this with the esperanto wordlist
 # See here for format info
 # https://github.com/mattginsberg/cluer/blob/master/cluer.cpp
 import string

@@ -19,6 +19,12 @@ const MAX_STRING_LENGTH = 2048;
 function isPuz(bytes: Uint8Array) {
   return magicIndex(bytes) !== -1;
 }
+
+function isJpz(bytes: Uint8Array) {
+  // TODO
+  return true;
+}
+
 function magicIndex(bytes: Uint8Array) {
   const initialChars = String.fromCodePoint.apply(
     null,
@@ -148,7 +154,7 @@ class PuzReader {
       ) {
         grid.push(val);
       } else {
-        throw new Error(`Invalid character in grid at position ${i}`);
+        throw new Error(`Invalid character in grid at position ${i}. Val: ${val}`);
       }
     }
 
@@ -236,6 +242,156 @@ class PuzReader {
       ...(hidden.length && { hidden }),
     };
   }
+}
+
+class JpzReader {
+  
+  public Doc: XMLDocument;
+  public highlighted: number[];
+  public rebusMap: Uint8Array | null;
+  public rebusKey: Record<number, string>;
+  private encoding = 'UTF-8';//'ISO-8859-1';
+
+  constructor(public buf: Uint8Array) {
+    /* TODO: check the encoding tag in the doc and set encoding to match
+    if (this.XMLDoc.enco) {
+      this.encoding = 'UTF-8';
+    }
+    */
+    this.Doc = this.parseXML();
+    this.highlighted = [];
+    this.rebusMap = null;
+    this.rebusKey = {};
+  }
+  
+  parseXML() {
+    var text: string = new TextDecoder(this.encoding)
+      .decode(this.buf);
+    return new DOMParser().parseFromString(text,"text/xml");
+  }
+
+  toCrosshare(): PuzzleInProgressStrictT {
+
+    const grid: string[] = [];
+    const hidden: number[] = []; // TODO: figure out what this even means
+    const clues: ClueT[] = [];
+    
+    console.log("doc");
+    console.log(this.Doc);
+
+    var gridElement: Element | null = this.Doc.querySelector("grid");
+    if(!gridElement) {
+      throw new Error("missing grid element");
+    }
+    const w = Number(gridElement.getAttribute("width"));
+    const h = Number(gridElement.getAttribute("height"));
+    
+    const metadataElement = this.Doc.querySelector("metadata");
+    if(!metadataElement) {
+      throw new Error("missing metadata element");
+    }
+    const crosswordElement = this.Doc.querySelector("crossword");
+    if (!crosswordElement) {
+      throw new Error("missing 'crossword' element");
+    }
+    
+    var title = "Sentitola"; // todo: localize
+    const titleElement = metadataElement.querySelector("title");
+    if(titleElement) {
+      title = titleElement.text;
+    }
+
+    var notes = ""; // todo: find these
+
+
+    for (var row = 1; row <= h; row++) {
+      for (var col = 1; col <= w; col++) {
+        const cellElement = gridElement.querySelector(`cell[x='${col}'][y='${row}']`) // should we just loop through the children and fill in the empty grid
+        const cellType = cellElement?.getAttribute("type");
+        const cellSolution = cellElement?.getAttribute("solution");
+        if (!cellElement) {
+          throw new Error(`grid missing point (row:${row},col:${col})`);
+        } else if (cellType && cellType === "block") {
+          grid.push(BLOCK)
+        } else if (cellSolution) {
+          grid.push(cellSolution);
+        } else {
+          grid.push(EMPTY) // empty cells don't have 
+        }
+      }
+    }
+
+    const cluesElements = crosswordElement.querySelectorAll("clues");
+    if (cluesElements) {
+      for (var cluesElement of cluesElements) {
+        var cluesTitleElement = cluesElement.querySelector("title");
+        var dir: 0 | 1 | null = null;
+        if (cluesTitleElement) {
+          if (cluesTitleElement.textContent.toLowerCase() === 'across') {
+            dir = 0;
+          } else if (cluesTitleElement.textContent.toLowerCase() === 'down') {
+            dir = 1;
+          } else {
+            throw new Error(`clues list title (across/down) format not recognized: ${cluesTitleElement.text}`);
+          }
+        } else {
+          throw new Error("clue list missing title (across/down).")
+        }
+        for (const clueElement of cluesElement.querySelectorAll("clue")) {
+          const number = Number(clueElement.getAttribute("number"));
+          const wordId = Number(clueElement.getAttribute("word"));
+          
+          const wordElem = crosswordElement.querySelector(`word[id='${wordId}']`);
+          if (!wordElem) {
+            throw new Error(`clue lacks word: ${number}`)
+          }
+          
+          /* // Oops, forgot that we don't need the word
+          var word: string = "";
+          for(const cellElem of wordElem.querySelectorAll("cells")) {
+            // todo: more validation
+            const x = Number(cellElem.getAttribute("x"));
+            const y = Number(cellElem.getAttribute("y"));
+            const gridVal = grid[w * y + x];
+            
+            word += gridVal;
+          }
+          */
+          
+          clues.push({
+            num: number,
+            clue: clueElement.textContent,
+            dir: dir,
+            explanation: null, //TODO: see what the tag for explanation is
+          });
+
+        }
+      }
+    }
+
+    const viewableGrid = fromCells({
+      cells: grid,
+      width: w,
+      height: h,
+      allowBlockEditing: false,
+      cellStyles: new Map<string, Set<number>>(),
+      hidden: new Set(hidden),
+      vBars: new Set<number>(),
+      hBars: new Set<number>(),
+      mapper: (e) => e,
+    });
+
+    return {
+      width: w,
+      height: h,
+      grid,
+      title,
+      notes,
+      clues: getClueMap(viewableGrid, clues),
+      cellStyles: { circle: this.highlighted },
+      ...(hidden.length && { hidden }),
+    }
+  };
 }
 
 export type ExportProps = Pick<
@@ -546,6 +702,13 @@ export function exportFile(puzzle: ExportProps): Uint8Array {
 export function importFile(bytes: Uint8Array): PuzzleInProgressStrictT | null {
   if (isPuz(bytes)) {
     return new PuzReader(bytes).toCrosshare();
+  }
+  return null;
+}
+
+export function importFileJpz(bytes: Uint8Array) : PuzzleInProgressStrictT | null {
+  if (isJpz(bytes)) {
+    return new JpzReader(bytes).toCrosshare();
   }
   return null;
 }

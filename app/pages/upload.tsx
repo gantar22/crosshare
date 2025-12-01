@@ -20,7 +20,7 @@ import { FeatureList, FeatureListItem } from '../components/FeatureList.js';
 import { Hero } from '../components/Hero.js';
 import { Link, LinkButton } from '../components/Link.js';
 import { Preview } from '../components/Preview.js';
-import { importFile } from '../lib/converter.js';
+import { importFile, importFileJpz } from '../lib/converter.js';
 import { withStaticTranslation } from '../lib/translation.js';
 import { PuzzleInProgressT } from '../lib/types.js';
 import styles from './upload.module.css';
@@ -51,7 +51,7 @@ export default function UploadPage() {
         setError('Failed to read as binary');
       } else {
         try {
-          const puzzle = importFile(new Uint8Array(fileReader.result));
+          const puzzle = importFileJpz(new Uint8Array(fileReader.result));
           if (!puzzle) {
             setError('Failed to parse file');
           } else {
@@ -82,7 +82,7 @@ export default function UploadPage() {
   }
 
   const description =
-    'Import your existing puzzle to share it on Crosshare. Get your .puz files playable on the web. Crosshare gives your solvers a first-class experience on any device, and gives you access to statistics about solves.';
+    'Import your existing puzzle to share it on Crosshare. Get your .jpz files playable on the web. Crosshare gives your solvers a first-class experience on any device, and gives you access to statistics about solves.';
   return (
     <>
       <Head>
@@ -128,13 +128,13 @@ export default function UploadPage() {
           <>
             <label>
               <p>
-                Select a .puz file to upload - you&apos;ll be able to review the
+                Select a .jpz file to upload - you&apos;ll be able to review the
                 puzzle before publishing
               </p>
               <input
                 className={styles.fileInput}
                 type="file"
-                accept=".puz"
+                accept=".jpz"
                 onChange={(e) => {
                   handleFile(e.target.files);
                 }}
@@ -162,8 +162,8 @@ export default function UploadPage() {
         />
         <FeatureListItem
           icon={<RiPagesLine />}
-          heading="Make your .puz files interactive"
-          text="If you're only publishing .puz and .pdf files, you're missing out on a bunch of potential solvers. Crosshare instantly gives your puzzle a home on the web and expands your audience."
+          heading="Make your .jpz files interactive"
+          text="If you're only publishing .jpz and .pdf files, you're missing out on a bunch of potential solvers. Crosshare instantly gives your puzzle a home on the web and expands your audience."
         />
         <FeatureListItem
           icon={<IoMdResize />}
@@ -212,7 +212,7 @@ export default function UploadPage() {
         />
       </FeatureList>
       <div className={styles.construct}>
-        <p>Don’t have a .puz file to upload?</p>
+        <p>Don’t have a .jpz file to upload?</p>
         <LinkButton href="/construct">
           Make your own puzzle with the Crosshare constructor
         </LinkButton>
